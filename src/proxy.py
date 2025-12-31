@@ -15,12 +15,12 @@ def setWebProxy(service, host, port):
 
 
 def trust_mitmproxy_cert():
-    
+   
     cert_path = os.path.expanduser("~/.mitmproxy/mitmproxy-ca-cert.pem")
     
     if os.path.exists(cert_path):
         try:
-            
+           
             cmd = [
                 "sudo", "security", "add-trusted-cert", 
                 "-d", "-r", "trustRoot", 
@@ -28,8 +28,10 @@ def trust_mitmproxy_cert():
                 cert_path
             ]
             subprocess.run(cmd, check=True)
+          
         except subprocess.CalledProcessError as e:
-            print(f"Failed: {e}")
+            print(f"Failed to install cert: {e}")
+ 
 
 
 
