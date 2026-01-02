@@ -15,12 +15,12 @@ def setWebProxy(service, host, port):
 
 
 def trust_mitmproxy_cert():
-   
+    # Path to the mitmproxy cert (usually created after first run)
     cert_path = os.path.expanduser("~/.mitmproxy/mitmproxy-ca-cert.pem")
     
     if os.path.exists(cert_path):
         try:
-           
+            # Add the cert to the System Keychain and set to 'Always Trust'
             cmd = [
                 "sudo", "security", "add-trusted-cert", 
                 "-d", "-r", "trustRoot", 
@@ -28,10 +28,11 @@ def trust_mitmproxy_cert():
                 cert_path
             ]
             subprocess.run(cmd, check=True)
-          
+            print("Successfully added certificate to Keychain. Check for the password prompt.")
         except subprocess.CalledProcessError as e:
             print(f"Failed to install cert: {e}")
- 
+    else:
+        print("Cert not found. Run mitmproxy once first to generate it.")
 
 
 
@@ -40,5 +41,5 @@ def trust_mitmproxy_cert():
 setWebProxy("Wi-Fi", "127.0.0.1", "8000")
 
 
-
+# Call this before starting your proxy logic
 trust_mitmproxy_cert()
