@@ -15,6 +15,7 @@ lyrics_map = {}
 current_song = None
 playback_time = 0
 last_update_local = 0
+pausing = False
 
 
 
@@ -39,17 +40,29 @@ def get_playback_time(messageDic):
     # print(playbackState)
 
 
+def get_pausing(messageDic):
+
+    playbackState = messageDic.get('3', {}).get('17', {})
+    if (playbackState.get('2')):
+        return False
+    else:
+        return True
+
+
 ###################################
 async def lyrics_timer_loop():
 
-    global playback_time, current_song, lyrics_map, last_update_local
+    global playback_time, current_song, lyrics_map, last_update_local, pausing
     
-    print("🎤 Lyrics Timer Active...")
+    # print("🎤 Lyrics Timer Active...")
     last_printed_line = ""
 
     while True:
         if current_song and current_song in lyrics_map:
-            
+            if (pausing):
+                last_update_local = time.time()
+                pass
+                
             # print("hahahah")
             if last_update_local > 0:
                 elapsed_since_update = (time.time() - last_update_local) * 1000
@@ -78,7 +91,7 @@ async def lyrics_timer_loop():
 class SpotifyLogger:
     def response(self, flow: http.HTTPFlow):
 
-        global current_song, playback_time, lyrics_map, last_update_local
+        global current_song, playback_time, lyrics_map, last_update_local, pausing
 
         #add the lyric to the lyric map
         if "spclient.wg.spotify.com/color-lyrics" in flow.request.pretty_url:
@@ -97,7 +110,9 @@ class SpotifyLogger:
         # if change the playback time
         if "gae2-spclient.spotify.com/connect-state/v1/devices/" in flow.request.pretty_url:
             decrypted_data = decrypt_connectState(flow.response.content)
+
             playback_time = result if (result := get_playback_time(decrypted_data)) is not None else 0
+            pausing = get_pausing(decrypted_data)
             last_update_local = time.time()
             # print(f"debug {playback_time}")
 
