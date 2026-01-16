@@ -26,16 +26,10 @@
  * ```
  */
 
-import './index.css';
-
-console.log(
-  '👋 This message is being logged by "renderer.ts", included via Vite',
-);
-
-
 
 // import React from "react";
 import { createRoot } from 'react-dom/client';
+import Lyrics from './component/Lyrics';
 
 const App = () => {
   return <h1>Hello, world</h1>;
@@ -49,4 +43,4 @@ const container = document.getElementById('root') as HTMLElement;
 
 const root = createRoot(container);
 
-root.render(<App/>);
+root.render(<Lyrics/>);
