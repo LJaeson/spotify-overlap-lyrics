@@ -4,6 +4,7 @@ import json
 import time
 import blackboxprotobuf
 from mitmproxy import http, options
+import sys
 from mitmproxy.tools.dump import DumpMaster
 
 import base64
@@ -81,8 +82,9 @@ async def lyrics_timer_loop():
             
            
             if current_line != last_printed_line:
-                
-                print(f"\r[{time.strftime('%M:%S', time.gmtime(estimated_time/1000))}] 🎤 {current_line: <80}", end="")
+                print(current_line)
+                sys.stdout.flush()
+                # print(f"\r[{time.strftime('%M:%S', time.gmtime(estimated_time/1000))}] 🎤 {current_line: <80}", end="")
                 last_printed_line = current_line
 
         await asyncio.sleep(0.05) 
