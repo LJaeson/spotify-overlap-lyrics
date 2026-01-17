@@ -1,0 +1,17 @@
+/* src/Lyrics.css */
+.lyric-container {
+  background: rgba(0, 0, 0, 0.7); /* Semi-transparent black */
+  color: #1DB954;                /* Spotify Green */
+  font-family: 'Helvetica Neue', sans-serif;
+  font-size: 32px;
+  font-weight: bold;
+  text-align: center;
+  padding: 0px;
+  border-radius: 15px;
+  -webkit-app-region: drag;      /* Allows you to click and drag the window */
+}
+
+.lyric-text {
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  transition: all 0s ease;     /* Smooth transition when lyrics change */
+}

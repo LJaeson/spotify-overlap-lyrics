@@ -1,5 +1,6 @@
 // function profile = () => {
 import { useEffect, useState } from 'react';
+import './Lyrics.css';
 
 // export const Lyrics = () => {
 //   const [currentLine, setCurrentLine] = useState("Waiting...");
@@ -23,9 +24,11 @@ export default function Lyrics() {
             setCurrentLine(text);
         });
     }, []);
+
+
     return (
-        <>
-            {currentLine}
-        </>
+        <div className="lyric-container">
+            <h1 className='lyric-text'>{currentLine}</h1>
+        </div>
     )
 }
