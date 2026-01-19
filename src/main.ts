@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { ipcMain, app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { spawn } from 'child_process';
@@ -18,7 +18,7 @@ if (started) {
 const createWindow = () => {
 
   mainWindow = new BrowserWindow({
-    width: 800,
+    width: 400,
     height: 200,
     transparent: true,    
     frame: false,          
@@ -40,7 +40,7 @@ const createWindow = () => {
   }
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 };
 
 // This method will be called when Electron has finished
@@ -102,6 +102,12 @@ app.whenReady().then(() => {
   });
 })
 
-
+ipcMain.on('resize-window', (event, dimensions) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    // animate: true makes the OS window resize smoothly
+    win.setSize(dimensions.width, dimensions.height, true);
+  }
+});
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
