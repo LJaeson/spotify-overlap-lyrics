@@ -28,7 +28,7 @@ import { useEffect, useState, useRef } from 'react';
 import './Lyrics.css';
 
 export default function Lyrics() {
-    const [currentLine, setCurrentLine] = useState("Waiting ...");
+    const [currentLine, setCurrentLine] = useState("♪♪♪");
     // 1. Create a state to store the calculated height
     const [height, setHeight] = useState<number | string>('auto');
     
@@ -38,7 +38,7 @@ export default function Lyrics() {
     useEffect(() => {
         // Listen for the lyric from the Electron bridge
         const removeListener = (window as any).api.onLyric((text: string) => {
-            setCurrentLine(text);
+            text ? setCurrentLine(text) : setCurrentLine("♪♪");
         });
 
         return () => {
@@ -61,15 +61,15 @@ export default function Lyrics() {
         <div 
             className="lyric-container" 
             style={{ 
-                height: typeof height === 'number' ? `${height}px` : height,
+                height: typeof height === 'number' ? `${height-15}px` : height,
                 overflow: 'hidden',
-                transition: 'height 0.4s ease-in-out', // Makes the window grow/shrink smoothly
+                // transition: 'height 0s ease-in-out', // Makes the window grow/shrink smoothly
                 backgroundColor: 'rgba(0,0,0,0.5)', // Example: semi-transparent for overlay
                 borderRadius: '8px'
             }}
         >
             {/* The Inner Wrapper: Used for measurement */}
-            <div ref={contentRef} style={{ padding: '10px' }}>
+            <div ref={contentRef} style={{ padding: '15px' }}>
                 <h1 className='lyric-text' style={{ margin: 0 }}>
                     {currentLine}
                 </h1>

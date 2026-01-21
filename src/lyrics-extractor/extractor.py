@@ -40,6 +40,16 @@ def get_playback_time(messageDic):
     return playbackState
     # print(playbackState)
 
+def get_playback_time2(messageDic):
+
+    # print(messageDic)
+    playbackState = messageDic.get('2', {})
+    playbackState = playbackState.get('2', {})
+    playbackState = playbackState.get('10')
+
+    return playbackState
+    # print(playbackState)
+
 
 def get_pausing(messageDic):
 
@@ -49,7 +59,13 @@ def get_pausing(messageDic):
     else:
         return True
 
+def get_pausing2(messageDic):
 
+    playbackState = messageDic.get('2', {}).get('2', {}).get('17', {})
+    if (playbackState.get('1')):
+        return True
+    else:
+        return False
 ###################################
 async def lyrics_timer_loop():
 
@@ -91,6 +107,48 @@ async def lyrics_timer_loop():
 
 
 class SpotifyLogger:
+    # def responseheaders(self, flow: http.HTTPFlow):
+    #     # 1. Enable streaming immediately for Spotify URLs 
+    #     # This prevents mitmproxy from buffering on your slow connection
+    #     if "spotify.com" in flow.request.pretty_url:
+    #         flow.response.stream = True
+    def request(self, flow:http.HTTPFlow):
+        global current_song, playback_time, lyrics_map, last_update_local, pausing
+
+        # if change the playback time
+        if "gae2-spclient.spotify.com/connect-state/v1/devices/" in flow.request.pretty_url:
+            decrypted_data2 = decrypt_connectState(flow.request.content)
+            # print(decrypted_data2)
+            playback_time = result if (result := get_playback_time2(decrypted_data2)) is not None else 0
+            pausing = get_pausing2(decrypted_data2)
+            last_update_local = time.time()
+            # print(f"debug {playback_time}")
+            # decrypted_data = decrypt_connectState(flow.response.content)
+
+            # playback_time = result if (result := get_playback_time(decrypted_data)) is not None else 0
+            # pausing = get_pausing(decrypted_data)
+            # last_update_local = time.time()
+            # print(f"debug {playback_time}")
+
+
+        # new song
+        if "api-partner.spotify.com/pathfinder/v2/query" in flow.request.pretty_url:
+            data = json.loads(flow.request.content)
+
+            try:
+                track_uri = data['variables']['trackUri']
+                if track_uri:
+                    current_song = track_uri.split(':')[-1]
+
+                    # print(lyrics_map[current_song])
+
+            except Exception:
+                pass
+
+            # print(current_song)
+
+
+            
     def response(self, flow: http.HTTPFlow):
 
         global current_song, playback_time, lyrics_map, last_update_local, pausing
@@ -107,32 +165,6 @@ class SpotifyLogger:
                 # decompressed_lyrics = gzip.decompress(flow.response.content)
                 lyrics_map[track_id] = json.loads(flow.response.content)
             
-
-
-        # if change the playback time
-        if "gae2-spclient.spotify.com/connect-state/v1/devices/" in flow.request.pretty_url:
-            decrypted_data = decrypt_connectState(flow.response.content)
-
-            playback_time = result if (result := get_playback_time(decrypted_data)) is not None else 0
-            pausing = get_pausing(decrypted_data)
-            last_update_local = time.time()
-            # print(f"debug {playback_time}")
-
-        # new song
-        if "api-partner.spotify.com/pathfinder/v2/query" in flow.request.pretty_url:
-            data = json.loads(flow.request.content)
-
-            try:
-                track_uri = data['variables']['trackUri']
-                if track_uri:
-                    current_song = track_uri.split(':')[-1]
-
-                    # print(lyrics_map[current_song])
-
-            except Exception:
-                pass
-
-            print(current_song)
 
 
 

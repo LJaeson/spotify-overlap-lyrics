@@ -10,22 +10,16 @@
   border-radius: 15px;
   -webkit-app-region: drag;      /* Allows you to click and drag the window */
   height: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .lyric-text {
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
   transition: all 0s ease;     /* Smooth transition when lyrics change */
-}
-
-.lyric-container {
-    width: 100%; /* Or a specific width */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.lyric-text {
-    font-size: 24px;
-    text-align: center;
-    word-wrap: break-word; /* Important if the line is very long! */
+  font-size: 24px;
+  text-align: center;
+  word-wrap: break-word; /* Important if the line is very long! */
 }
