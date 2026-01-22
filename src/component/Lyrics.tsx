@@ -1,29 +1,3 @@
-// import { useEffect, useState } from 'react';
-// import './Lyrics.css';
-
-
-// export default function Lyrics() {
-//     const [currentLine, setCurrentLine] = useState("Waiting ...");
-
-//     useEffect(() => {
-
-
-//         (window as any).api.onLyric((text: string) => {
-//             setCurrentLine(text);
-//         });
-//     }, []);
-
-
-//     return (
-//         <div className="lyric-container">
-//             <h1 className='lyric-text'>{currentLine}</h1>
-//         </div>
-//     )
-// }
-
-
-
-
 import { useEffect, useState, useRef } from 'react';
 import './Lyrics.css';
 
@@ -34,6 +8,15 @@ export default function Lyrics() {
     
     // 2. Create a ref to measure the actual text element
     const contentRef = useRef<HTMLDivElement>(null);
+
+
+// --- NEW: Context Menu Handler ---
+    const handleRightClick = (e: React.MouseEvent) => {
+        e.preventDefault(); // Prevents the browser's default gray menu
+        (window as any).api.showContextMenu();
+    };
+
+
 
     useEffect(() => {
         // Listen for the lyric from the Electron bridge
@@ -52,7 +35,7 @@ export default function Lyrics() {
             const measuredHeight = contentRef.current.offsetHeight;
             setHeight(measuredHeight);
 
-            (window as any).api.setWindowSize(400, measuredHeight);
+            (window as any).api.setWindowSize(contentRef.current.offsetWidth, measuredHeight);
         }
     }, [currentLine]); // Dependency: run whenever the text updates
 
@@ -60,12 +43,13 @@ export default function Lyrics() {
         /* The Outer Container: Handles the smooth height transition and clipping */
         <div 
             className="lyric-container" 
+            onContextMenu={handleRightClick}
             style={{ 
-                height: typeof height === 'number' ? `${height-15}px` : height,
-                overflow: 'hidden',
+                height: typeof height === 'number' ? `${height-16}px` : height,
+                
                 // transition: 'height 0s ease-in-out', // Makes the window grow/shrink smoothly
-                backgroundColor: 'rgba(0,0,0,0.5)', // Example: semi-transparent for overlay
-                borderRadius: '8px'
+                // backgroundColor: 'rgba(0,0,0,0.5)', // Example: semi-transparent for overlay
+                // borderRadius: '10px'
             }}
         >
             {/* The Inner Wrapper: Used for measurement */}
@@ -76,4 +60,6 @@ export default function Lyrics() {
             </div>
         </div>
     );
+
+    
 }

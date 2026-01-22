@@ -37,17 +37,35 @@ def get_active_service_name():
     
     return None
 
-def setWebProxy(service, host, port):
-    try:
-        httpLine = ['networksetup', '-setwebproxy', service, host, port]
-        httpsLine = ['networksetup', '-setsecurewebproxy', service, host, port]
+# def setWebProxy(service, host, port):
+#     try:
+#         httpLine = ['networksetup', '-setwebproxy', service, host, port]
+#         httpsLine = ['networksetup', '-setsecurewebproxy', service, host, port]
 
-        subprocess.run(httpLine, check=True)
-        subprocess.run(httpsLine, check=True)
-    except subprocess.CalledProcessError:
-        print("error")
-    except Exception:
-        print("error")
+#         subprocess.run(httpLine, check=True)
+#         subprocess.run(httpsLine, check=True)
+#     except subprocess.CalledProcessError:
+#         print("error")
+#     except Exception:
+#         print("error")
+
+# def unsetWebProxy(service):
+#     """
+#     Turns off both HTTP and HTTPS proxies for the specified network service.
+#     """
+#     try:
+#         # Commands to disable the proxy
+#         http_off = ['networksetup', '-setwebproxystate', service, 'off']
+#         https_off = ['networksetup', '-setsecurewebproxystate', service, 'off']
+
+#         subprocess.run(http_off, check=True)
+#         subprocess.run(https_off, check=True)
+        
+#         print(f"Successfully disabled web proxy for: {service}")
+#     except subprocess.CalledProcessError as e:
+#         print(f"Failed to unset proxy: {e}")
+#     except Exception as e:
+#         print(f"An unexpected error occurred: {e}")
 
 
 def trust_mitmproxy_cert():
@@ -82,8 +100,8 @@ if __name__ == "__main__":
     # else:
     #     print("error")
     
-    setWebProxy("Tailscale", "127.0.0.1", "8000")
-
-
     # Call this before starting proxy logic
     trust_mitmproxy_cert()
+
+
+    # setWebProxy("Tailscale", "127.0.0.1", "8000")

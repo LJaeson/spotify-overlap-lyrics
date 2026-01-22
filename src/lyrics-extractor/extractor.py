@@ -172,17 +172,21 @@ class SpotifyLogger:
 async def start_proxy():
     opts = options.Options(
         listen_host='127.0.0.1',
-        listen_port=8000,
+        listen_port=7381,
         allow_hosts=[r"spotify\.com"],
         # flow_detail = 0
+
+        # ignore_hosts=[
+        #     r"^(?!(.*spclient\.wg\.spotify\.com|.*api\.spotify\.com))"
+        # ],
     )
 
     master = DumpMaster(opts)
 
-    try:
-        opts.update(flow_detail=0, termlog_verbosity="error")
-    except KeyError:
-        pass
+    # try:
+    #     opts.update(flow_detail=0, termlog_verbosity="error")
+    # except KeyError:
+    #     pass
     
     master.addons.add(SpotifyLogger())
 

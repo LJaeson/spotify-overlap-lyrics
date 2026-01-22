@@ -1,8 +1,10 @@
-import { ipcMain, app, BrowserWindow } from 'electron';
+import { ipcMain, app, BrowserWindow, Menu} from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-import { spawn } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { join } from 'path';
+import sudo from '@vscode/sudo-prompt';
+import { trustMitmproxyCert } from './lyrics-extractor/setCertTS';
 
 // Create the browser window.
 let mainWindow: BrowserWindow;
@@ -43,6 +45,43 @@ const createWindow = () => {
   // mainWindow.webContents.openDevTools();
 };
 
+
+const runSetProxy = () => {
+  const scriptPath = app.isPackaged 
+    ? path.join(process.resourcesPath, 'lyrics-extractor', 'setProxy.py') // Production
+    : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'setProxy.py'); // Development (inside .vite/build/main.js)
+
+  exec(`python3 "${scriptPath}"`, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Exec error: ${error}`);
+      return; 
+    }
+    console.log('Output: ' + stdout);
+  });
+  // const pythonProcess = spawn('python3', [scriptPath]);
+}
+
+const runSetCert = () => {
+  const scriptPath = app.isPackaged 
+    ? path.join(process.resourcesPath, 'lyrics-extractor', 'setCert.py') // Production
+    : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'setCert.py'); // Development (inside .vite/build/main.js)
+
+  const options = {
+    name: 'Spotify Lyrics Extractor',
+  };
+
+  const command = `/usr/bin/python3 -I "${scriptPath}"`;
+
+  // Explicitly call python3 via sudo-prompt
+  sudo.exec(command, options, (error, stdout, stderr) => {
+    if (error) {
+      console.error('Sudo error:', error);
+      return;
+    }
+    console.log('Sudo Output: ' + stdout);
+  });
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -55,10 +94,13 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+
 });
 
 
 app.whenReady().then(() => {
+  runSetProxy();
+
   createWindow();
 
 
@@ -83,8 +125,10 @@ app.whenReady().then(() => {
   });
 
   // Ensure Python dies when Electron quits
+  //code run when the program quit
   app.on('will-quit', () => {
     pythonProcess.kill();
+    console.log('Running my custom cleanup code...');
   });
 
   // Optional: Handle Python exit
@@ -111,3 +155,27 @@ ipcMain.on('resize-window', (event, dimensions) => {
 });
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
+
+
+// Listen for the right-click event from React
+ipcMain.on('show-context-menu', (event) => {
+  const template = [
+    { label: 'set cert', click: () => trustMitmproxyCert()},
+    { label: 'set proxy', click: () => runSetProxy()},
+    {
+      label: 'Lyrics Settings',
+      submenu: [
+        { label: 'Adjust Delay', click: () => console.log('Delay clicked') },
+        { label: 'Reset Timer', click: () => console.log('Reset clicked') }
+      ]
+    },
+    { type: 'separator' },
+    { label: 'Always on Top', type: 'checkbox', checked: true },
+    { type: 'separator' },
+    { role: 'quit', label: 'Exit Application' }
+  ];
+
+  const menu = Menu.buildFromTemplate(template as any);
+  menu.popup(BrowserWindow.fromWebContents(event.sender) as any);
+});
+
