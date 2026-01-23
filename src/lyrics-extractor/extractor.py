@@ -175,18 +175,14 @@ async def start_proxy():
         listen_port=7381,
         allow_hosts=[r"spotify\.com"],
         # flow_detail = 0
-
-        # ignore_hosts=[
-        #     r"^(?!(.*spclient\.wg\.spotify\.com|.*api\.spotify\.com))"
-        # ],
     )
 
     master = DumpMaster(opts)
 
-    # try:
-    #     opts.update(flow_detail=0, termlog_verbosity="error")
-    # except KeyError:
-    #     pass
+    try:
+        opts.update(flow_detail=0, termlog_verbosity="error")
+    except KeyError:
+        pass
     
     master.addons.add(SpotifyLogger())
 

@@ -1,37 +1,51 @@
+import { exec } from 'child_process';
 import os from 'os';
 import path from 'path';
-import fs from 'fs';
-import sudo from '@vscode/sudo-prompt';
+import { dialog } from 'electron';
 
-
-// Inside your setCertTS.ts
 export const trustMitmproxyCert = () => {
+
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Certificate Setup',
+    message: 'To see lyrics, you must trust the mitmproxy certificate.',
+    detail: 'We use mitmproxy to check the traffic going in and going out from Spotify, which we will only use the lyric part of information. That means, we need install mitmproxy certificate into System KeyChains. DONT WORRY, we promise this is harmless, you could review our code in setCertTS.ts in our github page. However, Apple doesnt allow us to do it without GUI. So, we will open terminal for you, what you need to do is just\n\n 1. Allow us to open terminal.\n2. Input your password.\n3. Vala, the certificate is all set! You can always delete it in KeyChain Access',
+    buttons: ['Open Terminal']
+  });
+
+
   const certPath = path.join(os.homedir(), '.mitmproxy', 'mitmproxy-ca-cert.pem');
 
-  if (fs.existsSync(certPath)) {
-    const options = {
-      name: 'Spotify Lyrics Extractor',
-    };
+  // We use 'osascript' to tell the Terminal app to execute our command
+  // 'do script' opens a new window and runs the command automatically
+  const command = `sudo security add-trusted-cert -d -r trustRoot -p ssl -k /Library/Keychains/System.keychain "${certPath}"`;
+  
+  const appleScript = `
+    tell application "Terminal"
+      activate
+      do script "${command.replace(/"/g, '\\"')}"
+    end tell
+  `;
 
-    // Adding 'sudo' here inside the string often forces the OS to 
-    // allow the graphical trust prompt to appear.
-    const command = `security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${certPath}"`;
-
-    sudo.exec(command, options, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Failed to install cert: ${error}`);
-        return;
-      }
-      console.log('Successfully added certificate.');
-    });
-  }
+  exec(`osascript -e '${appleScript}'`, (error) => {
+    if (error) {
+      console.error(`Failed to launch terminal: ${error.message}`);
+    } else {
+      console.log('Terminal launched. Please enter your password there.');
+    }
+  });
 };
 
 
+// import os from 'os';
+// import path from 'path';
+// import fs from 'fs';
+// import sudo from '@vscode/sudo-prompt';
 
 
 
-// // // Inside your setCertTS.ts
+
+
 // // export const trustMitmproxyCert = () => {
 // //   const certPath = path.join(os.homedir(), '.mitmproxy', 'mitmproxy-ca-cert.pem');
 
