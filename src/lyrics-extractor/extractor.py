@@ -66,6 +66,15 @@ def get_pausing2(messageDic):
         return True
     else:
         return False
+    
+def get_song(messageDic):
+    playbackState = messageDic.get('2', {}).get('2', {}).get('7', {}).get('1')
+    this_song = playbackState.decode().split(':')[-1]
+
+    return this_song if this_song else None
+
+
+
 ###################################
 async def lyrics_timer_loop():
 
@@ -98,6 +107,8 @@ async def lyrics_timer_loop():
             
            
             if current_line != last_printed_line:
+                # print("song:" + current_song)
+
                 print(current_line)
                 sys.stdout.flush()
                 # print(f"\r[{time.strftime('%M:%S', time.gmtime(estimated_time/1000))}] 🎤 {current_line: <80}", end="")
@@ -122,6 +133,15 @@ class SpotifyLogger:
             playback_time = result if (result := get_playback_time2(decrypted_data2)) is not None else 0
             pausing = get_pausing2(decrypted_data2)
             last_update_local = time.time()
+            
+            try:
+                this_song =  get_song(decrypted_data2)
+                if this_song and this_song != current_song:
+                    current_song = this_song
+
+            except Exception:
+                pass
+
             # print(f"debug {playback_time}")
             # decrypted_data = decrypt_connectState(flow.response.content)
 
@@ -131,21 +151,27 @@ class SpotifyLogger:
             # print(f"debug {playback_time}")
 
 
-        # new song
-        if "api-partner.spotify.com/pathfinder/v2/query" in flow.request.pretty_url:
-            data = json.loads(flow.request.content)
+        # # new song
+        # if "api-partner.spotify.com/pathfinder/v2/query" in flow.request.pretty_url:
+        #     data = json.loads(flow.request.content)
 
-            try:
-                track_uri = data['variables']['trackUri']
-                if track_uri:
-                    current_song = track_uri.split(':')[-1]
+        #     try:
+        #         track_uri = data['variables']['trackUri']
+        #         if track_uri:
+        #             current_song = track_uri.split(':')[-1]
 
-                    # print(lyrics_map[current_song])
+        #             # print(lyrics_map[current_song])
 
-            except Exception:
-                pass
+        #     except Exception:
+        #         pass
 
-            # print(current_song)
+        #     # print("cuerrent: " + current_song)
+
+        # if "https://gae2-spclient.spotify.com/playplay/v1/playable/" in flow.request.pretty_url:
+        #     data = flow.request.pretty_url.split('/')
+        #     current = data[-1]
+
+        #     print("new: " + current)
 
 
             
@@ -154,7 +180,7 @@ class SpotifyLogger:
         global current_song, playback_time, lyrics_map, last_update_local, pausing
 
         #add the lyric to the lyric map
-        if "spclient.wg.spotify.com/color-lyrics" in flow.request.pretty_url:
+        if "spclient.wg.spotify.com/color-lyrics" in flow.request.pretty_url and flow.request.method == "GET":
             match = re.search(r'track/([a-zA-Z0-9]{22})', flow.request.pretty_url)
             track_id = match.group(1)
 

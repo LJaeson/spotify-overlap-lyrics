@@ -56,30 +56,26 @@ const runSetProxy = () => {
       console.error(`Exec error: ${error}`);
       return; 
     }
-    console.log('Output: ' + stdout);
+    console.log('set proxy scceed: ' + stdout);
   });
   // const pythonProcess = spawn('python3', [scriptPath]);
 }
 
-const runSetCert = () => {
+const runUnsetProxy = () => {
+
   const scriptPath = app.isPackaged 
-    ? path.join(process.resourcesPath, 'lyrics-extractor', 'setCert.py') // Production
-    : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'setCert.py'); // Development (inside .vite/build/main.js)
+    ? path.join(process.resourcesPath, 'lyrics-extractor', 'unsetProxy.py') // Production
+    : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'unsetProxy.py'); // Development (inside .vite/build/main.js)
 
-  const options = {
-    name: 'Spotify Lyrics Extractor',
-  };
-
-  const command = `/usr/bin/python3 -I "${scriptPath}"`;
-
-  // Explicitly call python3 via sudo-prompt
-  sudo.exec(command, options, (error, stdout, stderr) => {
+  exec(`python3 "${scriptPath}"`, (error, stdout, stderr) => {
     if (error) {
-      console.error('Sudo error:', error);
-      return;
+      console.error(`Exec error: ${error}`);
+      return; 
     }
-    console.log('Sudo Output: ' + stdout);
+    console.log('unset proxy scceed: ' + stdout);
   });
+  // const pythonProcess = spawn('python3', [scriptPath]);
+
 }
 
 // This method will be called when Electron has finished
@@ -128,7 +124,8 @@ app.whenReady().then(() => {
   //code run when the program quit
   app.on('will-quit', () => {
     pythonProcess.kill();
-    console.log('Running my custom cleanup code...');
+    runUnsetProxy();
+    console.log('closed');
   });
 
   // Optional: Handle Python exit
@@ -162,6 +159,11 @@ ipcMain.on('show-context-menu', (event) => {
   const template = [
     { label: 'set cert', click: () => trustMitmproxyCert()},
     { label: 'set proxy', click: () => runSetProxy()},
+    { label: 'unset proxy', click: () => runUnsetProxy()},
+    { type: 'separator' },
+    { label: 'Hide', click: () => runSetProxy()},
+    { label: 'Font-size', click: () => runSetProxy()},
+    { label: 'Background transparency', click: () => runSetProxy()},
     {
       label: 'Lyrics Settings',
       submenu: [

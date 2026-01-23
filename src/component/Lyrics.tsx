@@ -47,7 +47,7 @@ export default function Lyrics() {
             style={{ 
                 height: typeof height === 'number' ? `${height-16}px` : height,
                 
-                // transition: 'height 0s ease-in-out', // Makes the window grow/shrink smoothly
+                transition: 'height 0.05s ease-in-out', // Makes the window grow/shrink smoothly
                 // backgroundColor: 'rgba(0,0,0,0.5)', // Example: semi-transparent for overlay
                 // borderRadius: '10px'
             }}
