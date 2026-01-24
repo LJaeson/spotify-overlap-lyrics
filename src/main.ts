@@ -3,13 +3,59 @@ import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { exec, spawn } from 'child_process';
 import { join } from 'path';
-import sudo from '@vscode/sudo-prompt';
+// import sudo from '@vscode/sudo-prompt';
 import { trustMitmproxyCert } from './lyrics-extractor/setCertTS';
 
+
+///////////////////////////////////DB///////////////////////////////////////
+import Database from 'better-sqlite3';
+
+// Get the path to the user's app data folder
+const dbPath = path.join(app.getPath('userData'), 'spotify-overlap-lyrics-preference.db');
+const db = new Database(dbPath);
+
+// Create your tables on startup
+// db.prepare(`
+//   DROP TABLE preference
+// `).run();
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS preference (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    font_size INTEGER NOT NULL DEFAULT 24,
+    font_color TEXT NOT NULL DEFAULT '#1DB954',
+    window_width INTEGER NOT NULL DEFAULT 350,
+    bg_transparency INTEGER NOT NULL DEFAULT 60
+  )
+`).run();
+
+db.prepare(`
+  INSERT OR IGNORE INTO preference (id, font_size, font_color, window_width, bg_transparency)
+  VALUES (1, 24, '#1DB954', 350, 60)
+`).run();
+
+
+const getDbSettings = () => {
+  return db.prepare('SELECT * FROM preference WHERE id = 1').get();
+}
+
+const updateDbSettings = (key: string, value: any) => {
+  const statement = db.prepare(`UPDATE preference SET ${key} = ? WHERE id = 1`);
+  const result = statement.run(value);
+  mainWindow.webContents.send('update-preference', getDbSettings())
+  return result;
+}
+////////////////////////////////////////////////////////////////////////////
 // Create the browser window.
 let mainWindow: BrowserWindow;
 
-
+// create the local font size for drop down menu
+const font_size_guide = [12, 14, 16, 18, 20, 22, 24, 27, 30, 36];
+const bg_transparencye_guide = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+const tempDbSetting:any = getDbSettings();
+let localFontSize = tempDbSetting.font_size;
+let local_bg_transparency = tempDbSetting.bg_transparency;
+let local_width = tempDbSetting.window_width;
 
 //////////////////////////////////////////////front end////////////////////////
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -20,7 +66,7 @@ if (started) {
 const createWindow = () => {
 
   mainWindow = new BrowserWindow({
-    width: 400,
+    width: local_width,
     height: 200,
     transparent: true,    
     frame: false,          
@@ -40,6 +86,14 @@ const createWindow = () => {
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
+
+  
+  mainWindow.on('resize', () => {
+    const [newWidth, newHeight] = mainWindow.getSize();
+    
+    local_width = newWidth;
+    updateDbSettings("window_width", newWidth);
+  });
 
   // Open the DevTools.
   // mainWindow.webContents.openDevTools();
@@ -143,10 +197,23 @@ app.whenReady().then(() => {
   });
 })
 
+
+
+
+
+
+
+//////////////////////////////////ipc////////////////////////////////
+
+
+
+
 ipcMain.on('resize-window', (event, dimensions) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
     // animate: true makes the OS window resize smoothly
+    local_width = dimensions.width;
+    updateDbSettings("window_width", dimensions.width);
     win.setSize(dimensions.width, dimensions.height, true);
   }
 });
@@ -162,14 +229,29 @@ ipcMain.on('show-context-menu', (event) => {
     { label: 'unset proxy', click: () => runUnsetProxy()},
     { type: 'separator' },
     { label: 'Hide', click: () => runSetProxy()},
-    { label: 'Font-size', click: () => runSetProxy()},
-    { label: 'Background transparency', click: () => runSetProxy()},
     {
-      label: 'Lyrics Settings',
-      submenu: [
-        { label: 'Adjust Delay', click: () => console.log('Delay clicked') },
-        { label: 'Reset Timer', click: () => console.log('Reset clicked') }
-      ]
+      label: 'Font-size',
+      submenu: font_size_guide.map((size) => ({
+        label: `${size} px`,
+        type: 'radio',
+        checked: localFontSize === size,
+        click: () => {
+          updateDbSettings("font_size", size);
+          localFontSize = size;
+        }
+      }))
+    },
+    {
+      label: 'Background transparency',
+      submenu: bg_transparencye_guide.map((size) => ({
+        label: `${size}%`,
+        type: 'radio',
+        checked: local_bg_transparency === size,
+        click: () => {
+          updateDbSettings("bg_transparency", size);
+          local_bg_transparency = size;
+        }
+      }))
     },
     { type: 'separator' },
     { label: 'Always on Top', type: 'checkbox', checked: true },
@@ -181,3 +263,12 @@ ipcMain.on('show-context-menu', (event) => {
   menu.popup(BrowserWindow.fromWebContents(event.sender) as any);
 });
 
+
+//db
+ipcMain.handle('get-preferences', () => {
+  return getDbSettings()
+});
+
+// ipcMain.handle('update-preference', (event, key: string, value: any) => {
+//   return updateDbSettings(key, value)
+// });

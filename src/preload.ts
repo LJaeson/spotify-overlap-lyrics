@@ -7,6 +7,14 @@ contextBridge.exposeInMainWorld('api', {
 
   setWindowSize: (width: number, height: number) => ipcRenderer.send('resize-window', { width, height }),
 
-  showContextMenu: () => ipcRenderer.send('show-context-menu')
+  showContextMenu: () => ipcRenderer.send('show-context-menu'),
 
+  updatePreference: (callback: (settings: any) => void) => ipcRenderer.on('update-preference', (_event, value) => callback(value)),
+
+  getPreferences: () => ipcRenderer.invoke('get-preferences')
 });
+
+// contextBridge.exposeInMainWorld('dbAPI', {
+
+//   // updatePreference: (key: string, value: any) => ipcRenderer.invoke('update-preference', key, value),
+// });

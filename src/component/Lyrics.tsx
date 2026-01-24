@@ -9,6 +9,33 @@ export default function Lyrics() {
     // 2. Create a ref to measure the actual text element
     const contentRef = useRef<HTMLDivElement>(null);
 
+    //db setting
+    const [dbSettings, setDbSettings] = useState<any>({
+        font_size: 24,
+        font_color: '#1DB954',
+        window_width: 350, 
+        bg_transparency: 60
+    })
+
+    useEffect(() => {
+        (window as any).api.getPreferences().then((data: any) => {
+            setDbSettings(data);
+        });
+    }, []);
+
+    useEffect(() => {
+        const removeListener = (window as any).api.updatePreference((settings: any) => {
+            if (settings) setDbSettings(settings);
+        });
+
+        return () => removeListener();
+    }, []);
+
+    // const makeDbUpddate = async (key: string, value: any) => {
+    //     await (window as any).dbAPI.updatePreference(key, value);
+    //     setDbSettings({ ...dbSettings, [key]: value });
+    // }
+
 
 // --- NEW: Context Menu Handler ---
     const handleRightClick = (e: React.MouseEvent) => {
@@ -48,13 +75,20 @@ export default function Lyrics() {
                 height: typeof height === 'number' ? `${height-16}px` : height,
                 
                 transition: 'height 0.05s ease-in-out', // Makes the window grow/shrink smoothly
-                // backgroundColor: 'rgba(0,0,0,0.5)', // Example: semi-transparent for overlay
+                backgroundColor: `rgba(0,0,0,${dbSettings.bg_transparency / 100})`,
                 // borderRadius: '10px'
             }}
         >
             {/* The Inner Wrapper: Used for measurement */}
             <div ref={contentRef} style={{ padding: '15px' }}>
-                <h1 className='lyric-text' style={{ margin: 0 }}>
+                <h1 
+                    className='lyric-text' 
+                    style={{ 
+                        margin: 0,
+                        // font-size: 24
+                        fontSize: dbSettings.font_size
+                    }}
+                >
                     {currentLine}
                 </h1>
             </div>
