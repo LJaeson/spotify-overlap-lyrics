@@ -10,9 +10,11 @@ import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-nati
 
 const config: ForgeConfig = {
   packagerConfig: {
+    // icon: './assets/icon',
     asar: true,
     extraResource: [
         './src/lyrics-extractor'
+        // './src/assets'
       ],
   },
   rebuildConfig: {},

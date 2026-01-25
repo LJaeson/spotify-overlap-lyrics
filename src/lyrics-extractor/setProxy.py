@@ -1,4 +1,5 @@
 import subprocess
+import sys;
 
 def setWebProxy(service, host, port):
     try:
@@ -14,5 +15,7 @@ def setWebProxy(service, host, port):
 
 
 if __name__ == "__main__":
+
+
     
-    setWebProxy("Tailscale", "127.0.0.1", "7381")
+    setWebProxy(sys.argv[1] if sys.argv[1] else 'Wi-Fi', "127.0.0.1", "7381")

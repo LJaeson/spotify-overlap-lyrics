@@ -37,6 +37,33 @@ def get_active_service_name():
     
     return None
 
+
+
+def get_active_service_name():
+    try:
+        # 1. Get the primary interface (e.g., en0)
+        route_cmd = ["route", "-n", "get", "default"]
+        route_output = subprocess.check_output(route_cmd).decode()
+        interface_match = re.search(r"interface:\s+(\w+)", route_output)
+        if not interface_match: return None
+        target_device = interface_match.group(1)
+
+        # 2. Map device to Service Name
+        order_output = subprocess.check_output(["networksetup", "-listnetworkserviceorder"]).decode()
+        
+        # We split by the pattern (1), (2), etc. to isolate each service block
+        chunks = re.split(r'\(\d+\)\s+', order_output)
+        for chunk in chunks:
+            if f"Device: {target_device}" in chunk:
+                # The service name is usually the first line of the chunk
+                service_name = chunk.split('\n')[0].replace('Hardware Port: ', '').strip()
+                # Clean up: remove trailing info like "(Hardware Port: Wi-Fi, Device: en0)"
+                service_name = service_name.split(' (Hardware Port')[0].strip()
+                return service_name
+
+    except Exception as e:
+        print(f"Error detecting service: {e}")
+    return None
 # def setWebProxy(service, host, port):
 #     try:
 #         httpLine = ['networksetup', '-setwebproxy', service, host, port]

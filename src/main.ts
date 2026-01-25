@@ -1,10 +1,12 @@
-import { ipcMain, app, BrowserWindow, Menu} from 'electron';
+import { ipcMain, app, BrowserWindow, Menu, dialog} from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { exec, spawn } from 'child_process';
 import { join } from 'path';
 // import sudo from '@vscode/sudo-prompt';
 import { trustMitmproxyCert } from './lyrics-extractor/setCertTS';
+
+import { getActiveServiceName, getAllNetworkServiceNames } from './tools';
 
 
 ///////////////////////////////////DB///////////////////////////////////////
@@ -25,13 +27,14 @@ db.prepare(`
     font_size INTEGER NOT NULL DEFAULT 24,
     font_color TEXT NOT NULL DEFAULT '#1DB954',
     window_width INTEGER NOT NULL DEFAULT 350,
-    bg_transparency INTEGER NOT NULL DEFAULT 60
+    bg_transparency INTEGER NOT NULL DEFAULT 60,
+    network_service TEXT NOT NULL DEFAULT 'Wi-Fi'
   )
 `).run();
 
 db.prepare(`
-  INSERT OR IGNORE INTO preference (id, font_size, font_color, window_width, bg_transparency)
-  VALUES (1, 24, '#1DB954', 350, 60)
+  INSERT OR IGNORE INTO preference (id, font_size, font_color, window_width, bg_transparency, network_service)
+  VALUES (1, 24, '#1DB954', 350, 60, 'Wi-Fi')
 `).run();
 
 
@@ -50,12 +53,30 @@ const updateDbSettings = (key: string, value: any) => {
 let mainWindow: BrowserWindow;
 
 // create the local font size for drop down menu
-const font_size_guide = [12, 14, 16, 18, 20, 22, 24, 27, 30, 36];
+const font_size_guide = [12, 14, 17, 20, 24, 27, 30, 36];
 const bg_transparencye_guide = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 const tempDbSetting:any = getDbSettings();
 let localFontSize = tempDbSetting.font_size;
 let local_bg_transparency = tempDbSetting.bg_transparency;
 let local_width = tempDbSetting.window_width;
+
+//////////////////////////////////////////////
+//get service name
+const service_guide: string[] = getAllNetworkServiceNames();
+let curr_service: string | null = getActiveServiceName();
+
+// if (!curr_service) {
+//   // curr_service = (tempDbSetting.network_service)? tempDbSetting.network_service : service_guide[0];
+//   curr_service =  service_guide[0];
+//   dialog.showMessageBox({
+//     type: 'info',
+//     title: 'Proxy Setup',
+//     message: 'Auto-detect current service failed',
+//     detail: 'Please manually select or confirm the current network service and try set proxy again',
+//     buttons: ['OK']
+//   });
+// }
+
 
 //////////////////////////////////////////////front end////////////////////////
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -75,6 +96,7 @@ const createWindow = () => {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
+    // icon: path.join(__dirname, 'assets/icons/icon.png')
   });
 
   
@@ -105,7 +127,7 @@ const runSetProxy = () => {
     ? path.join(process.resourcesPath, 'lyrics-extractor', 'setProxy.py') // Production
     : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'setProxy.py'); // Development (inside .vite/build/main.js)
 
-  exec(`python3 "${scriptPath}"`, (error, stdout, stderr) => {
+  exec(`python3 "${scriptPath}" "${curr_service}"`, (error, stdout, stderr) => {
     if (error) {
       console.error(`Exec error: ${error}`);
       return; 
@@ -121,7 +143,7 @@ const runUnsetProxy = () => {
     ? path.join(process.resourcesPath, 'lyrics-extractor', 'unsetProxy.py') // Production
     : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'unsetProxy.py'); // Development (inside .vite/build/main.js)
 
-  exec(`python3 "${scriptPath}"`, (error, stdout, stderr) => {
+  exec(`python3 "${scriptPath}" "${curr_service}"`, (error, stdout, stderr) => {
     if (error) {
       console.error(`Exec error: ${error}`);
       return; 
@@ -149,6 +171,23 @@ app.on('window-all-closed', () => {
 
 
 app.whenReady().then(() => {
+  // const service_guide: string[] = getAllNetworkServiceNames();
+  // let curr_service: string | null = getActiveServiceName();
+
+
+  if (!curr_service) {
+    curr_service = service_guide[0];
+
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'Proxy Setup',
+      message: 'Auto-detect current network service failed',
+      detail: 'Please manually select or confirm the current network service by select the correct network service in "network services" drop down menu',
+      buttons: ['OK']
+    });
+  }
+
+
   runSetProxy();
 
   createWindow();
@@ -193,6 +232,9 @@ app.whenReady().then(() => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+    } else {
+      // If the window exists but is hidden, show it
+      mainWindow.show();
     }
   });
 })
@@ -227,8 +269,20 @@ ipcMain.on('show-context-menu', (event) => {
     { label: 'set cert', click: () => trustMitmproxyCert()},
     { label: 'set proxy', click: () => runSetProxy()},
     { label: 'unset proxy', click: () => runUnsetProxy()},
+    {
+      label: 'network service',
+      submenu: service_guide.map((size) => ({
+        label: `${size}`,
+        type: 'radio',
+        checked: curr_service === size,
+        click: () => {
+          runUnsetProxy();
+          curr_service = size;
+          runSetProxy();
+        }
+      }))
+    },
     { type: 'separator' },
-    { label: 'Hide', click: () => runSetProxy()},
     {
       label: 'Font-size',
       submenu: font_size_guide.map((size) => ({
@@ -254,7 +308,15 @@ ipcMain.on('show-context-menu', (event) => {
       }))
     },
     { type: 'separator' },
-    { label: 'Always on Top', type: 'checkbox', checked: true },
+    { label: 'Hide', click: () => {if (mainWindow) mainWindow.hide();}},
+    { 
+      label: 'Always on Top', 
+      type: 'checkbox', 
+      checked: mainWindow.isAlwaysOnTop(), 
+      click: (menuItem: any) => {
+        mainWindow.setAlwaysOnTop(menuItem.checked);
+      } 
+    },
     { type: 'separator' },
     { role: 'quit', label: 'Exit Application' }
   ];

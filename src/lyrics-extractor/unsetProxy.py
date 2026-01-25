@@ -1,4 +1,5 @@
 import subprocess
+import sys
 
 def unsetWebProxy(service):
     """
@@ -21,4 +22,4 @@ def unsetWebProxy(service):
 
 if __name__ == "__main__":
     
-    unsetWebProxy("Tailscale")
+    unsetWebProxy(sys.argv[1] if sys.argv[1] else 'Wi-Fi')
