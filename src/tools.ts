@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-
+import { BrowserWindow} from 'electron';
 /**
  * Detects the active macOS Network Service name (e.g., 'Wi-Fi' or 'Ethernet')
  * by mapping the default route interface to the service order list.
@@ -58,6 +58,33 @@ export function getAllNetworkServiceNames(): string[] {
     return [];
   }
 }
+
+export const showNativeLoading = () => {
+  const loader = new BrowserWindow({
+    width: 280,
+    height: 120,
+    frame: false,           // Native Mac "Frameless" look
+    transparent: true,      // Allows for rounded corners
+    alwaysOnTop: true,      // Keeps it above the main app
+    resizable: false,
+    hasShadow: true,
+    center: true,
+    webPreferences: { devTools: false }
+  });
+
+  // Native-looking CSS (frosted glass effect)
+  const html = `
+    <body style="margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
+      <div style="background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(20px); width: 100%; height: 100%; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 0.5px solid rgba(0,0,0,0.1);">
+        <div style="font-weight: 600; font-size: 14px; color: #333;">Updating Proxy</div>
+        <div style="font-size: 12px; color: #666; margin-top: 4px;">Please wait...</div>
+      </div>
+    </body>
+  `;
+  
+  loader.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  return loader;
+};
 
 // console.log(getActiveServiceName());
 

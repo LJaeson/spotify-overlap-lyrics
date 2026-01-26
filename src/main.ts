@@ -1,4 +1,7 @@
-import { ipcMain, app, BrowserWindow, Menu, dialog} from 'electron';
+
+
+
+import { ipcMain, app, BrowserWindow, Menu, dialog, nativeImage} from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { exec, spawn } from 'child_process';
@@ -6,8 +9,42 @@ import { join } from 'path';
 // import sudo from '@vscode/sudo-prompt';
 import { trustMitmproxyCert } from './lyrics-extractor/setCertTS';
 
-import { getActiveServiceName, getAllNetworkServiceNames } from './tools';
+import { getActiveServiceName, getAllNetworkServiceNames, showNativeLoading } from './tools';
 
+if (process.platform === 'darwin') {
+  app.name = 'Spotify Lyrics Overlay';
+}
+
+/////////////////////////////////helper///////////////////////////
+const getExtractorPath = (binName: string) => {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'lyrics-extractor', binName)
+    : path.join(process.cwd(), 'src', 'lyrics-extractor', binName);
+};
+
+const runSpawnTask = (binPath: string, args: string[]) => {
+  // Spawn the process directly with arguments as an array
+  const child = spawn(binPath, args);
+
+  child.stdout.on('data', (data) => {
+    console.log(`Output: ${data}`);
+  });
+
+  child.stderr.on('data', (data) => {
+    console.error(`Error: ${data}`);
+  });
+
+  child.on('close', (code) => {
+    console.log(`Process exited with code ${code}`);
+  });
+};
+
+////UNFINISHED
+// const makeItExecutable = (path: string) => {
+//   if (process.platform === 'darwin') {
+//     try { require('fs').chmodSync(binPath, 0o755); } catch (e) {}
+//   }
+// }
 
 ///////////////////////////////////DB///////////////////////////////////////
 import Database from 'better-sqlite3';
@@ -65,20 +102,23 @@ let local_width = tempDbSetting.window_width;
 const service_guide: string[] = getAllNetworkServiceNames();
 let curr_service: string | null = getActiveServiceName();
 
-// if (!curr_service) {
-//   // curr_service = (tempDbSetting.network_service)? tempDbSetting.network_service : service_guide[0];
-//   curr_service =  service_guide[0];
-//   dialog.showMessageBox({
-//     type: 'info',
-//     title: 'Proxy Setup',
-//     message: 'Auto-detect current service failed',
-//     detail: 'Please manually select or confirm the current network service and try set proxy again',
-//     buttons: ['OK']
-//   });
-// }
-
 
 //////////////////////////////////////////////front end////////////////////////
+// const iconPath = path.join(__dirname, '..', 'src', 'assets', 'logo_1.png');
+// const image = nativeImage.createFromPath(iconPath);
+
+const getIconPath = () => {
+  if (app.isPackaged) {
+    // In production, Vite usually puts extraResources in the resources folder
+    return path.join(process.resourcesPath, 'assets', 'logoP.png');
+  } else {
+    // In development, we point directly to the source folder from the project root
+    return path.join(process.cwd(), 'src', 'assets', 'logoP.png');
+  }
+};
+const iconPath = getIconPath();
+const image = nativeImage.createFromPath(iconPath);
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
@@ -87,6 +127,7 @@ if (started) {
 const createWindow = () => {
 
   mainWindow = new BrowserWindow({
+    title: "Spotify Lyrics Overlay",
     width: local_width,
     height: 200,
     transparent: true,    
@@ -96,7 +137,7 @@ const createWindow = () => {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
-    // icon: path.join(__dirname, 'assets/icons/icon.png')
+    icon: image,
   });
 
   
@@ -123,34 +164,84 @@ const createWindow = () => {
 
 
 const runSetProxy = () => {
-  const scriptPath = app.isPackaged 
-    ? path.join(process.resourcesPath, 'lyrics-extractor', 'setProxy.py') // Production
-    : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'setProxy.py'); // Development (inside .vite/build/main.js)
+  ////DEPRECATED
+  // const scriptPath = app.isPackaged 
+  //   ? path.join(process.resourcesPath, 'lyrics-extractor', 'setProxy.py') // Production
+  //   : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'setProxy.py'); // Development (inside .vite/build/main.js)
+  // 
+  // exec(`python3 "${scriptPath}" "${curr_service}"`, (error, stdout, stderr) => {
+  //   if (error) {
+  //     console.error(`Exec error: ${error}`);
+  //     return; 
+  //   }
+  //   console.log('set proxy scceed: ' + stdout);
+  // });
 
-  exec(`python3 "${scriptPath}" "${curr_service}"`, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Exec error: ${error}`);
-      return; 
+  // Call the native Apple utility directly (much faster than Python)
+  const cmd = `networksetup -setwebproxy "${curr_service}" 127.0.0.1 7381 && ` +
+              `networksetup -setsecurewebproxy "${curr_service}" 127.0.0.1 7381`;
+
+  exec(cmd, (err) => {
+    // Close the "native-looking" window immediately when done
+    
+    if (err) {
+      console.error("Failed to set proxy", err);
+      return;
     }
-    console.log('set proxy scceed: ' + stdout);
+
+    console.log(`set proxy succeed for ${curr_service}`);
   });
-  // const pythonProcess = spawn('python3', [scriptPath]);
+
+  // const binPath = getExtractorPath("setProxy_bin");
+
+  // exec(`"${binPath}" "${curr_service}"`, (error, stdout, stderr) => {
+  //   if (error) {
+  //     console.error(`Exec error: ${error}`);
+  //     return;
+  //   }
+  //   console.log('set proxy succeed: ' + stdout);
+  // });
 }
 
 const runUnsetProxy = () => {
+  // //DEPRECATED
+  // const scriptPath = app.isPackaged 
+  //   ? path.join(process.resourcesPath, 'lyrics-extractor', 'unsetProxy.py') // Production
+  //   : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'unsetProxy.py'); // Development (inside .vite/build/main.js)
 
-  const scriptPath = app.isPackaged 
-    ? path.join(process.resourcesPath, 'lyrics-extractor', 'unsetProxy.py') // Production
-    : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'unsetProxy.py'); // Development (inside .vite/build/main.js)
+  // exec(`python3 "${scriptPath}" "${curr_service}"`, (error, stdout, stderr) => {
+  //   if (error) {
+  //     console.error(`Exec error: ${error}`);
+  //     return; 
+  //   }
+  //   console.log('unset proxy scceed: ' + stdout);
+  // });
 
-  exec(`python3 "${scriptPath}" "${curr_service}"`, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Exec error: ${error}`);
-      return; 
+
+  const cmd = `networksetup -setwebproxystate "${curr_service}" off && ` +
+              `networksetup -setsecurewebproxystate "${curr_service}" off`;
+
+  exec(cmd, (err) => {
+    // Close the "native-looking" window immediately when done
+    
+    if (err) {
+      console.error("Failed to unset proxy", err);
+      return;
     }
-    console.log('unset proxy scceed: ' + stdout);
+
+    console.log(`unset proxy succeed for ${curr_service}`);
   });
-  // const pythonProcess = spawn('python3', [scriptPath]);
+
+
+  // const binPath = getExtractorPath("unsetProxy_bin");
+
+  // exec(`"${binPath}" "${curr_service}"`, (error, stdout, stderr) => {
+  //   if (error) {
+  //     console.error(`Exec error: ${error}`);
+  //     return;
+  //   }
+  //   console.log('set proxy succeed: ' + stdout);
+  // });
 
 }
 
@@ -173,6 +264,10 @@ app.on('window-all-closed', () => {
 app.whenReady().then(() => {
   // const service_guide: string[] = getAllNetworkServiceNames();
   // let curr_service: string | null = getActiveServiceName();
+  if (process.platform === 'darwin') {
+    app.dock.setIcon(image);
+    app.name = 'Spotify Lyrics Overlay';
+  }
 
 
   if (!curr_service) {
@@ -195,11 +290,32 @@ app.whenReady().then(() => {
 
   //////////////////////////////////////////back end///////////////////////////
   // Determine the correct path to your python script
-  const scriptPath = app.isPackaged 
-    ? path.join(process.resourcesPath, 'lyrics-extractor', 'extractor.py') // Production
-    : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'extractor.py'); // Development (inside .vite/build/main.js)
+  // const scriptPath = app.isPackaged 
+  //   ? path.join(process.resourcesPath, 'lyrics-extractor', 'extractor.py') // Production
+  //   : path.join(__dirname, '..', '..', 'src', 'lyrics-extractor', 'extractor.py'); // Development (inside .vite/build/main.js)
 
-  const pythonProcess = spawn('python3', [scriptPath]);
+  // const pythonProcess = spawn('python3', [scriptPath]);
+
+  const getPythonBinaryPath = () => {
+    if (app.isPackaged) {
+      return path.join(process.resourcesPath, 'lyrics-extractor', 'extractor');
+    } else {
+      return path.join(process.cwd(), 'src', 'lyrics-extractor', 'extractor');
+    }
+  };
+
+  const binaryPath = getPythonBinaryPath();
+  const pythonProcess = spawn(binaryPath);
+
+
+
+  pythonProcess.on('error', (err) => {
+    dialog.showErrorBox(
+      'Python Missing',
+      'This app requires Python 3 to be installed and available in your PATH.'
+    );
+    console.error('Failed to start Python process:', err);
+  }); 
 
   // const pythonProcess = spawn('python3', [join(__dirname, '/lyrics-extractor/extractor.py')]);
 
@@ -216,6 +332,7 @@ app.whenReady().then(() => {
   // Ensure Python dies when Electron quits
   //code run when the program quit
   app.on('will-quit', () => {
+    db.close();
     pythonProcess.kill();
     runUnsetProxy();
     console.log('closed');

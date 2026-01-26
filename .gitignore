@@ -93,3 +93,9 @@ out/
 
 #pycache
 __pycache__/
+
+#build
+build/
+
+#dist
+dist/

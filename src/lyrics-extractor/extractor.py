@@ -6,6 +6,7 @@ import blackboxprotobuf
 from mitmproxy import http, options
 import sys
 from mitmproxy.tools.dump import DumpMaster
+import subprocess
 
 import base64
 import gzip
@@ -73,7 +74,19 @@ def get_song(messageDic):
 
     return this_song if this_song else None
 
-
+def is_lid_closed():
+    try:
+        # Run the native ioreg command to check the clamshell (lid) state
+        result = subprocess.check_output(
+            ['ioreg', '-r', '-k', 'AppleClamshellState'], 
+            stderr=subprocess.STDOUT
+        ).decode('utf-8')
+        
+        # "Yes" means the lid is physically closed
+        return '"AppleClamshellState" = Yes' in result
+    except Exception as e:
+        print(f"Error checking lid status: {e}")
+        return False
 
 ###################################
 async def lyrics_timer_loop():
@@ -131,7 +144,7 @@ class SpotifyLogger:
             decrypted_data2 = decrypt_connectState(flow.request.content)
             # print(decrypted_data2)
             playback_time = result if (result := get_playback_time2(decrypted_data2)) is not None else 0
-            pausing = get_pausing2(decrypted_data2)
+            pausing = get_pausing2(decrypted_data2) or is_lid_closed()
             last_update_local = time.time()
             
             try:

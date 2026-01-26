@@ -7,14 +7,17 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
+import path from 'node:path';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    // icon: './assets/icon',
+    name: 'Spotify Lyrics Overlay',
+    executableName: 'spotify-lyrics-overlay',
+    icon: path.join(process.cwd(), 'src', 'assets', 'logo'),
     asar: true,
     extraResource: [
-        './src/lyrics-extractor'
-        // './src/assets'
+        path.join(process.cwd(), 'src', 'lyrics-extractor'),
+        path.join(process.cwd(), 'src', 'assets'),
       ],
   },
   rebuildConfig: {},
