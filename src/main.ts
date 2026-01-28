@@ -10,6 +10,8 @@ import { join } from 'path';
 import { trustMitmproxyCert } from './lyrics-extractor/setCertTS';
 
 import { getActiveServiceName, getAllNetworkServiceNames, showNativeLoading } from './tools';
+import { chmodSync } from 'node:fs';
+import Store from 'electron-store';
 
 if (process.platform === 'darwin') {
   app.name = 'Spotify Lyrics Overlay';
@@ -47,44 +49,89 @@ const runSpawnTask = (binPath: string, args: string[]) => {
 // }
 
 ///////////////////////////////////DB///////////////////////////////////////
-import Database from 'better-sqlite3';
+interface UserPreferences {
+  font_size: number;
+  font_color: string;
+  window_width: number;
+  bg_transparency: number;
+  network_service: string;
+}
 
-// Get the path to the user's app data folder
-const dbPath = path.join(app.getPath('userData'), 'spotify-overlap-lyrics-preference.db');
-const db = new Database(dbPath);
-
-// Create your tables on startup
-// db.prepare(`
-//   DROP TABLE preference
-// `).run();
-
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS preference (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    font_size INTEGER NOT NULL DEFAULT 24,
-    font_color TEXT NOT NULL DEFAULT '#1DB954',
-    window_width INTEGER NOT NULL DEFAULT 350,
-    bg_transparency INTEGER NOT NULL DEFAULT 60,
-    network_service TEXT NOT NULL DEFAULT 'Wi-Fi'
-  )
-`).run();
-
-db.prepare(`
-  INSERT OR IGNORE INTO preference (id, font_size, font_color, window_width, bg_transparency, network_service)
-  VALUES (1, 24, '#1DB954', 350, 60, 'Wi-Fi')
-`).run();
-
+const store = new Store<UserPreferences>({
+  defaults: {
+    font_size: 24,
+    font_color: '#1DB954',
+    window_width: 350,
+    bg_transparency: 60,
+    network_service: 'Wi-Fi'
+  }
+});
 
 const getDbSettings = () => {
-  return db.prepare('SELECT * FROM preference WHERE id = 1').get();
+  return (store as any).store;
 }
 
-const updateDbSettings = (key: string, value: any) => {
-  const statement = db.prepare(`UPDATE preference SET ${key} = ? WHERE id = 1`);
-  const result = statement.run(value);
-  mainWindow.webContents.send('update-preference', getDbSettings())
-  return result;
-}
+const updateDbSettings = (key: keyof UserPreferences, value: any) => {
+  // 1. Update the value on disk
+  (store as any).set(key, value);
+  
+  // 2. Notify the frontend immediately
+  // (We use store.store to send the full updated object back)
+  if (mainWindow) {
+    mainWindow.webContents.send('update-preference', getDbSettings());
+  }
+};
+
+
+
+//UNUSEABLE
+// import Database from 'better-sqlite3';
+
+// // let Database;
+// // if (app.isPackaged) {
+// //   // In production, load from the Resources folder where we manually copied it
+// //   Database = require(path.join(process.resourcesPath, 'better-sqlite3'));
+// // } else {
+// //   // In development, load from standard node_modules
+// //   Database = require('better-sqlite3');
+// // }
+
+// // Get the path to the user's app data folder
+// const dbPath = path.join(app.getPath('userData'), 'spotify-overlap-lyrics-preference.db');
+// const db = new Database(dbPath);
+
+// // Create your tables on startup
+// // db.prepare(`
+// //   DROP TABLE preference
+// // `).run();
+
+// db.prepare(`
+//   CREATE TABLE IF NOT EXISTS preference (
+//     id INTEGER PRIMARY KEY CHECK (id = 1),
+//     font_size INTEGER NOT NULL DEFAULT 24,
+//     font_color TEXT NOT NULL DEFAULT '#1DB954',
+//     window_width INTEGER NOT NULL DEFAULT 350,
+//     bg_transparency INTEGER NOT NULL DEFAULT 60,
+//     network_service TEXT NOT NULL DEFAULT 'Wi-Fi'
+//   )
+// `).run();
+
+// db.prepare(`
+//   INSERT OR IGNORE INTO preference (id, font_size, font_color, window_width, bg_transparency, network_service)
+//   VALUES (1, 24, '#1DB954', 350, 60, 'Wi-Fi')
+// `).run();
+
+
+// const getDbSettings = () => {
+//   return db.prepare('SELECT * FROM preference WHERE id = 1').get();
+// }
+
+// const updateDbSettings = (key: string, value: any) => {
+//   const statement = db.prepare(`UPDATE preference SET ${key} = ? WHERE id = 1`);
+//   const result = statement.run(value);
+//   mainWindow.webContents.send('update-preference', getDbSettings())
+//   return result;
+// }
 ////////////////////////////////////////////////////////////////////////////
 // Create the browser window.
 let mainWindow: BrowserWindow;
@@ -305,9 +352,16 @@ app.whenReady().then(() => {
   };
 
   const binaryPath = getPythonBinaryPath();
+
+  if (app.isPackaged) {
+    try {
+      chmodSync(binaryPath, 0o755);
+    } catch (e) {
+      console.error("Failed to set permissions:", e);
+    }
+  }
+
   const pythonProcess = spawn(binaryPath);
-
-
 
   pythonProcess.on('error', (err) => {
     dialog.showErrorBox(
@@ -332,7 +386,7 @@ app.whenReady().then(() => {
   // Ensure Python dies when Electron quits
   //code run when the program quit
   app.on('will-quit', () => {
-    db.close();
+    // db.close();
     pythonProcess.kill();
     runUnsetProxy();
     console.log('closed');

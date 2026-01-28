@@ -15,9 +15,13 @@ const config: ForgeConfig = {
     executableName: 'spotify-lyrics-overlay',
     icon: path.join(process.cwd(), 'src', 'assets', 'logo'),
     asar: true,
+    // asar: {
+    //   unpack: "**/node_modules/better-sqlite3/**"
+    // },
     extraResource: [
         path.join(process.cwd(), 'src', 'lyrics-extractor'),
         path.join(process.cwd(), 'src', 'assets'),
+        // path.join(process.cwd(), 'node_modules', 'better-sqlite3'),
       ],
   },
   rebuildConfig: {},
@@ -28,7 +32,11 @@ const config: ForgeConfig = {
     new MakerDeb({}),
   ],
   plugins: [
-    new AutoUnpackNativesPlugin({}),
+    {
+      name: '@electron-forge/plugin-auto-unpack-natives',
+      config: {}
+    },
+    // new AutoUnpackNativesPlugin({}),
 
 
     new VitePlugin({
@@ -63,7 +71,7 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      [FuseV1Options.OnlyLoadAppFromAsar]: false,
     }),
   ],
 };
