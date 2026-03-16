@@ -1,6 +1,7 @@
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
+import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
@@ -8,11 +9,22 @@ import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import path from 'node:path';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+const hasAppleNotarizeEnv =
+  !!process.env.APPLE_ID &&
+  !!process.env.APPLE_APP_SPECIFIC_PASSWORD &&
+  !!process.env.APPLE_TEAM_ID;
+
+const entitlementsPath = path.join(process.cwd(), 'entitlements.plist');
 
 const config: ForgeConfig = {
   packagerConfig: {
     name: 'Spotify Lyrics Overlay',
     executableName: 'spotify-lyrics-overlay',
+    appBundleId: 'com.ljaeson.spotify-overlap-lyrics',
     icon: path.join(process.cwd(), 'src', 'assets', 'logo'),
     asar: true,
     // asar: {
@@ -23,10 +35,28 @@ const config: ForgeConfig = {
         path.join(process.cwd(), 'src', 'assets'),
         // path.join(process.cwd(), 'node_modules', 'better-sqlite3'),
       ],
+    ...(process.platform === 'darwin' && hasAppleNotarizeEnv
+      ? {
+          osxSign: {
+            identity: 'Developer ID Application',
+            hardenedRuntime: true,
+            entitlements: entitlementsPath,
+            entitlementsInherit: entitlementsPath,
+            signatureFlags: 'library',
+          },
+          osxNotarize: {
+            tool: 'notarytool',
+            appleId: process.env.APPLE_ID,
+            appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD,
+            teamId: process.env.APPLE_TEAM_ID,
+          },
+        }
+      : {}),
   },
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({}),
+    new MakerDMG({}, ['darwin']),
     new MakerZIP({}, ['darwin']),
     new MakerRpm({}),
     new MakerDeb({}),
@@ -73,6 +103,18 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
       [FuseV1Options.OnlyLoadAppFromAsar]: false,
     }),
+  ],
+  publishers: [
+    {
+      name: '@electron-forge/publisher-github',
+      config: {
+        repository: {
+          owner: 'LJaeson',
+          name: 'spotify-overlap-lyrics'
+        },
+        prerelease: true
+      }
+    }
   ],
 };
 

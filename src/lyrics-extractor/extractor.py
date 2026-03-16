@@ -203,6 +203,8 @@ class SpotifyLogger:
 
                 # decompressed_lyrics = gzip.decompress(flow.response.content)
                 lyrics_map[track_id] = json.loads(flow.response.content)
+            else:
+                print("problem")
             
 
 

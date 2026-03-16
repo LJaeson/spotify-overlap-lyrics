@@ -1,40 +1,87 @@
-import { exec } from 'child_process';
+import { spawn } from 'child_process';
 import os from 'os';
 import path from 'path';
 import { dialog } from 'electron';
+import fs from 'fs';
 
 export const trustMitmproxyCert = () => {
-
+  // 1. Show the explanation dialog
   dialog.showMessageBox({
     type: 'info',
     title: 'Certificate Setup',
-    message: 'To see lyrics, you must trust the mitmproxy certificate.',
-    detail: 'We use mitmproxy to check the traffic going in and going out from Spotify, which we will only use the lyric part of information. That means, we need install mitmproxy certificate into System KeyChains. DONT WORRY, we promise this is harmless, you could review our code in setCertTS.ts in our github page. However, Apple doesnt allow us to do it without GUI. So, we will open terminal for you, what you need to do is just\n\n 1. Allow us to open terminal.\n2. Input your password.\n3. Vala, the certificate is all set! You can always delete it in KeyChain Access',
-    buttons: ['Open Terminal']
-  });
-
-
-  const certPath = path.join(os.homedir(), '.mitmproxy', 'mitmproxy-ca-cert.pem');
-
-  // We use 'osascript' to tell the Terminal app to execute our command
-  // 'do script' opens a new window and runs the command automatically
-  const command = `sudo security add-trusted-cert -d -r trustRoot -p ssl -k /Library/Keychains/System.keychain "${certPath}"`;
-  
-  const appleScript = `
-    tell application "Terminal"
-      activate
-      do script "${command.replace(/"/g, '\\"')}"
-    end tell
-  `;
-
-  exec(`osascript -e '${appleScript}'`, (error) => {
-    if (error) {
-      console.error(`Failed to launch terminal: ${error.message}`);
-    } else {
-      console.log('Terminal launched. Please enter your password there.');
+    message: 'Trust Certificate Required',
+    detail: 'To read lyrics, we need to add the mitmproxy certificate to your System Keychain.\n\nSince macOS blocked the automatic prompt, we will open a Terminal window for you.\n\nPlease type your password in the Terminal window and press Enter.',
+    buttons: ['Open Terminal', 'Cancel'],
+    defaultId: 0,
+    cancelId: 1
+  }).then((result) => {
+    if (result.response === 0) {
+      runTerminalScript();
     }
   });
 };
+
+const runTerminalScript = () => {
+  const certPath = path.join(os.homedir(), '.mitmproxy', 'mitmproxy-ca-cert.pem');
+    const tempScriptPath = path.join(os.tmpdir(), 'install_cert.command');
+
+    // Create the script content
+    const scriptContent = `#!/bin/bash
+  echo "Installing Spotify Lyrics Certificate(mitmproxy cert)..."
+  sudo security add-trusted-cert -d -r trustRoot -p ssl -k /Library/Keychains/System.keychain "${certPath}"
+  echo "Done! You can close this window."
+  exit
+  `;
+
+    // Write file, make executable, and open it
+    fs.writeFileSync(tempScriptPath, scriptContent);
+    fs.chmodSync(tempScriptPath, '755'); // Make it executable
+    
+    // 'open' command launches the file in Terminal natively
+    spawn('open', [tempScriptPath]);
+};
+
+
+
+
+
+// import { exec } from 'child_process';
+// import os from 'os';
+// import path from 'path';
+// import { dialog } from 'electron';
+
+// export const trustMitmproxyCert = () => {
+
+//   dialog.showMessageBox({
+//     type: 'info',
+//     title: 'Certificate Setup',
+//     message: 'To see lyrics, you must trust the mitmproxy certificate.',
+//     detail: 'We use mitmproxy to check the traffic going in and going out from Spotify, which we will only use the lyric part of information. That means, we need install mitmproxy certificate into System KeyChains. DONT WORRY, we promise this is harmless, you could review our code in setCertTS.ts in our github page. However, Apple doesnt allow us to do it without GUI. So, we will open terminal for you, what you need to do is just\n\n 1. Allow us to open terminal.\n2. Input your password.\n3. Vala, the certificate is all set! You can always delete it in KeyChain Access',
+//     buttons: ['Open Terminal']
+//   });
+
+
+//   const certPath = path.join(os.homedir(), '.mitmproxy', 'mitmproxy-ca-cert.pem');
+
+//   // We use 'osascript' to tell the Terminal app to execute our command
+//   // 'do script' opens a new window and runs the command automatically
+//   const command = `sudo security add-trusted-cert -d -r trustRoot -p ssl -k /Library/Keychains/System.keychain "${certPath}"`;
+  
+//   const appleScript = `
+//     tell application "Terminal"
+//       activate
+//       do script "${command.replace(/"/g, '\\"')}"
+//     end tell
+//   `;
+
+//   exec(`osascript -e '${appleScript}'`, (error) => {
+//     if (error) {
+//       console.error(`Failed to launch terminal: ${error.message}`);
+//     } else {
+//       console.log('Terminal launched. Please enter your password there.');
+//     }
+//   });
+// };
 
 
 // import os from 'os';
