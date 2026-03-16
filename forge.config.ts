@@ -7,7 +7,6 @@ import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
-import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import path from 'node:path';
 import * as dotenv from 'dotenv';
 
@@ -39,13 +38,13 @@ const config: ForgeConfig = {
       ? {
           osxSign: {
             identity: 'Developer ID Application',
-            hardenedRuntime: true,
-            entitlements: entitlementsPath,
-            entitlementsInherit: entitlementsPath,
-            signatureFlags: 'library',
+            optionsForFile: () => ({
+              entitlements: entitlementsPath,
+              hardenedRuntime: true,
+              signatureFlags: 'library',
+            }),
           },
           osxNotarize: {
-            tool: 'notarytool',
             appleId: process.env.APPLE_ID,
             appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD,
             teamId: process.env.APPLE_TEAM_ID,

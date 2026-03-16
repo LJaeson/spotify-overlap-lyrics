@@ -1,52 +1,20 @@
 
 
 
-import { ipcMain, app, BrowserWindow, Menu, dialog, nativeImage} from 'electron';
+import { ipcMain, app, BrowserWindow, Menu, dialog, nativeImage, type MenuItem, type MenuItemConstructorOptions } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { exec, spawn } from 'child_process';
-import { join } from 'path';
 // import sudo from '@vscode/sudo-prompt';
 import { trustMitmproxyCert } from './lyrics-extractor/setCertTS';
 
-import { getActiveServiceName, getAllNetworkServiceNames, showNativeLoading } from './tools';
+import { getActiveServiceName, getAllNetworkServiceNames } from './tools';
 import { chmodSync } from 'node:fs';
 import Store from 'electron-store';
 
 if (process.platform === 'darwin') {
   app.name = 'Spotify Lyrics Overlay';
 }
-
-/////////////////////////////////helper///////////////////////////
-const getExtractorPath = (binName: string) => {
-  return app.isPackaged
-    ? path.join(process.resourcesPath, 'lyrics-extractor', binName)
-    : path.join(process.cwd(), 'src', 'lyrics-extractor', binName);
-};
-
-const runSpawnTask = (binPath: string, args: string[]) => {
-  // Spawn the process directly with arguments as an array
-  const child = spawn(binPath, args);
-
-  child.stdout.on('data', (data) => {
-    console.log(`Output: ${data}`);
-  });
-
-  child.stderr.on('data', (data) => {
-    console.error(`Error: ${data}`);
-  });
-
-  child.on('close', (code) => {
-    console.log(`Process exited with code ${code}`);
-  });
-};
-
-////UNFINISHED
-// const makeItExecutable = (path: string) => {
-//   if (process.platform === 'darwin') {
-//     try { require('fs').chmodSync(binPath, 0o755); } catch (e) {}
-//   }
-// }
 
 ///////////////////////////////////DB///////////////////////////////////////
 interface UserPreferences {
@@ -57,23 +25,57 @@ interface UserPreferences {
   network_service: string;
 }
 
+const defaultPreferences: UserPreferences = {
+  font_size: 24,
+  font_color: '#1DB954',
+  window_width: 350,
+  bg_transparency: 60,
+  network_service: 'Wi-Fi'
+};
+
 const store = new Store<UserPreferences>({
-  defaults: {
-    font_size: 24,
-    font_color: '#1DB954',
-    window_width: 350,
-    bg_transparency: 60,
-    network_service: 'Wi-Fi'
-  }
+  defaults: defaultPreferences
 });
 
-const getDbSettings = () => {
-  return (store as any).store;
-}
+type StoreWithGetSet = {
+  get: <K extends keyof UserPreferences>(key: K) => UserPreferences[K];
+  set: <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => void;
+};
 
-const updateDbSettings = (key: keyof UserPreferences, value: any) => {
+type StoreWithStoreObject = {
+  store: UserPreferences;
+};
+
+const compatibleStore = store as unknown as Partial<StoreWithGetSet & StoreWithStoreObject>;
+
+const getDbSettings = (): UserPreferences => {
+  if (typeof compatibleStore.get === 'function') {
+    return {
+      font_size: compatibleStore.get('font_size'),
+      font_color: compatibleStore.get('font_color'),
+      window_width: compatibleStore.get('window_width'),
+      bg_transparency: compatibleStore.get('bg_transparency'),
+      network_service: compatibleStore.get('network_service')
+    };
+  }
+
+  if (compatibleStore.store) {
+    return compatibleStore.store;
+  }
+
+  return defaultPreferences;
+};
+
+const updateDbSettings = <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
   // 1. Update the value on disk
-  (store as any).set(key, value);
+  if (typeof compatibleStore.set === 'function') {
+    compatibleStore.set(key, value);
+  } else if (compatibleStore.store) {
+    compatibleStore.store = {
+      ...compatibleStore.store,
+      [key]: value
+    };
+  }
   
   // 2. Notify the frontend immediately
   // (We use store.store to send the full updated object back)
@@ -139,7 +141,7 @@ let mainWindow: BrowserWindow;
 // create the local font size for drop down menu
 const font_size_guide = [12, 14, 17, 20, 24, 27, 30, 36];
 const bg_transparencye_guide = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-const tempDbSetting:any = getDbSettings();
+const tempDbSetting = getDbSettings();
 let localFontSize = tempDbSetting.font_size;
 let local_bg_transparency = tempDbSetting.bg_transparency;
 let local_width = tempDbSetting.window_width;
@@ -148,6 +150,9 @@ let local_width = tempDbSetting.window_width;
 //get service name
 const service_guide: string[] = getAllNetworkServiceNames();
 let curr_service: string | null = getActiveServiceName();
+if (!curr_service && service_guide.includes(tempDbSetting.network_service)) {
+  curr_service = tempDbSetting.network_service;
+}
 
 
 //////////////////////////////////////////////front end////////////////////////
@@ -199,7 +204,7 @@ const createWindow = () => {
 
   
   mainWindow.on('resize', () => {
-    const [newWidth, newHeight] = mainWindow.getSize();
+    const [newWidth] = mainWindow.getSize();
     
     local_width = newWidth;
     updateDbSettings("window_width", newWidth);
@@ -211,6 +216,11 @@ const createWindow = () => {
 
 
 const runSetProxy = () => {
+  if (!curr_service) {
+    console.error('Cannot set proxy: no active network service selected');
+    return;
+  }
+
   ////DEPRECATED
   // const scriptPath = app.isPackaged 
   //   ? path.join(process.resourcesPath, 'lyrics-extractor', 'setProxy.py') // Production
@@ -251,6 +261,11 @@ const runSetProxy = () => {
 }
 
 const runUnsetProxy = () => {
+  if (!curr_service) {
+    console.error('Cannot unset proxy: no active network service selected');
+    return;
+  }
+
   // //DEPRECATED
   // const scriptPath = app.isPackaged 
   //   ? path.join(process.resourcesPath, 'lyrics-extractor', 'unsetProxy.py') // Production
@@ -318,19 +333,31 @@ app.whenReady().then(() => {
 
 
   if (!curr_service) {
-    curr_service = service_guide[0];
+    if (service_guide.length > 0) {
+      curr_service = service_guide[0];
+      updateDbSettings('network_service', curr_service);
 
-    dialog.showMessageBox({
-      type: 'info',
-      title: 'Proxy Setup',
-      message: 'Auto-detect current network service failed',
-      detail: 'Please manually select or confirm the current network service by select the correct network service in "network services" drop down menu',
-      buttons: ['OK']
-    });
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Proxy Setup',
+        message: 'Auto-detect current network service failed',
+        detail: 'The app selected the first available network service. You can change it from the context menu under "network service".',
+        buttons: ['OK']
+      });
+    } else {
+      dialog.showMessageBox({
+        type: 'error',
+        title: 'Proxy Setup Failed',
+        message: 'No macOS network services were found',
+        detail: 'The app cannot configure proxy automatically. Check System Settings > Network, then relaunch the app.',
+        buttons: ['OK']
+      });
+    }
   }
 
-
-  runSetProxy();
+  if (curr_service) {
+    runSetProxy();
+  }
 
   createWindow();
 
@@ -365,10 +392,10 @@ app.whenReady().then(() => {
 
   pythonProcess.on('error', (err) => {
     dialog.showErrorBox(
-      'Python Missing',
-      'This app requires Python 3 to be installed and available in your PATH.'
+      'Extractor Startup Failed',
+      'The bundled lyrics extractor could not be started. Try reinstalling the app or checking file permissions.'
     );
-    console.error('Failed to start Python process:', err);
+    console.error('Failed to start extractor process:', err);
   }); 
 
   // const pythonProcess = spawn('python3', [join(__dirname, '/lyrics-extractor/extractor.py')]);
@@ -436,7 +463,7 @@ ipcMain.on('resize-window', (event, dimensions) => {
 
 // Listen for the right-click event from React
 ipcMain.on('show-context-menu', (event) => {
-  const template = [
+  const template: MenuItemConstructorOptions[] = [
     { label: 'set cert', click: () => trustMitmproxyCert()},
     { label: 'set proxy', click: () => runSetProxy()},
     { label: 'unset proxy', click: () => runUnsetProxy()},
@@ -449,6 +476,7 @@ ipcMain.on('show-context-menu', (event) => {
         click: () => {
           runUnsetProxy();
           curr_service = size;
+          updateDbSettings('network_service', size);
           runSetProxy();
         }
       }))
@@ -484,7 +512,7 @@ ipcMain.on('show-context-menu', (event) => {
       label: 'Always on Top', 
       type: 'checkbox', 
       checked: mainWindow.isAlwaysOnTop(), 
-      click: (menuItem: any) => {
+      click: (menuItem: MenuItem) => {
         mainWindow.setAlwaysOnTop(menuItem.checked);
       } 
     },
@@ -492,8 +520,11 @@ ipcMain.on('show-context-menu', (event) => {
     { role: 'quit', label: 'Exit Application' }
   ];
 
-  const menu = Menu.buildFromTemplate(template as any);
-  menu.popup(BrowserWindow.fromWebContents(event.sender) as any);
+  const menu = Menu.buildFromTemplate(template);
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (window) {
+    menu.popup({ window });
+  }
 });
 
 

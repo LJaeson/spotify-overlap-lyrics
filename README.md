@@ -18,7 +18,7 @@ The app shows synced lyric lines in a transparent floating window while Spotify 
 4. Right-click the lyric window and click `set cert`, then follow the Terminal prompt.
 5. Open Spotify, play a song, and keep Spotify's Lyrics panel open.
 
-5. if macOS still blocks launch by showing this application is damaged or something, is because I didn't pay 99USD to apple to get my developer account:
+If macOS still blocks launch, run:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/Spotify Lyrics Overlay.app"
